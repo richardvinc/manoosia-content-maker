@@ -143,7 +143,6 @@ function App() {
 	const [layers, setLayers] = useState<Layer[]>([]);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [editingTextId, setEditingTextId] = useState<string | null>(null);
-	const [inspectorOpen, setInspectorOpen] = useState(false);
 	const [drag, setDrag] = useState<null | {
 		id: string;
 		mode: "move" | "resize";
@@ -166,7 +165,7 @@ function App() {
 			: { x: false, y: false };
 
 	const scale = useMemo(() => {
-		const maxWidth = Math.max(320, viewport.width - 420);
+		const maxWidth = Math.max(320, viewport.width - 740);
 		const maxHeight = Math.max(320, viewport.height - 230);
 		return Math.min(maxWidth / dimension.size.width, maxHeight / dimension.size.height, 1);
 	}, [dimension.size.height, dimension.size.width, viewport.height, viewport.width]);
@@ -176,7 +175,6 @@ function App() {
 		setLayers([]);
 		setSelectedId(null);
 		setEditingTextId(null);
-		setInspectorOpen(false);
 	}, [dimensionKey]);
 
 	useEffect(() => {
@@ -337,7 +335,7 @@ function App() {
 				</div>
 			</header>
 
-			<main className="grid h-[calc(100vh-73px)] gap-4 px-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+			<main className="grid h-[calc(100vh-73px)] gap-4 px-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
 				<aside className="panel overflow-hidden">
 					<Section title="Dimension">
 						<div className="grid grid-cols-2 gap-2">
@@ -390,13 +388,6 @@ function App() {
 						<div className="flex flex-wrap gap-2">
 							<button className="btn-outline min-h-10 px-4 py-2 text-xs" type="button" onClick={addText}>
 								Add Text
-							</button>
-							<button
-								className="btn-outline min-h-10 px-4 py-2 text-xs"
-								type="button"
-								onClick={() => setInspectorOpen(true)}
-							>
-								Layer & Text
 							</button>
 						</div>
 					</div>
@@ -490,21 +481,11 @@ function App() {
 					</div>
 				</section>
 
-				{inspectorOpen ? (
-					<div className="fixed inset-0 z-50 bg-slate-950/25" onPointerDown={() => setInspectorOpen(false)}>
-						<aside
-							className="inspector-panel"
-							onPointerDown={(event) => event.stopPropagation()}
-						>
-							<div className="mb-4 flex items-center justify-between gap-3">
-								<div>
-									<p className="kicker">Controls</p>
-									<h2 className="text-lg font-bold">Layer & Text</h2>
-								</div>
-								<button className="btn-outline-sm" type="button" onClick={() => setInspectorOpen(false)}>
-									Close
-								</button>
-							</div>
+				<aside className="panel overflow-auto">
+					<div className="mb-4">
+						<p className="kicker">Controls</p>
+						<h2 className="text-lg font-bold">Layer & Text</h2>
+					</div>
 					<Section title="Layer">
 						<div className="grid grid-cols-2 gap-2">
 							<button className="btn-outline-sm" disabled={!selectedLayer} type="button" onClick={() => moveLayer("up")}>Up</button>
@@ -606,9 +587,7 @@ function App() {
 							Select layer to reorder. Select text layer to edit font and content.
 						</p>
 					)}
-						</aside>
-					</div>
-				) : null}
+				</aside>
 			</main>
 		</div>
 	);
