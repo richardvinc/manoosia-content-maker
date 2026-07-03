@@ -126,6 +126,10 @@ function asset(path: string) {
 	return `${import.meta.env.BASE_URL}${path}`;
 }
 
+function fontStack(fontFamily: FontFamily) {
+	return `"${fontFamily}", ui-sans-serif, system-ui, sans-serif`;
+}
+
 function centerLayer(size: Dimension["size"], width: number, height: number) {
 	return {
 		x: Math.round((size.width - width) / 2),
@@ -157,7 +161,7 @@ function App() {
 	const selectedLayer = layers.find((layer) => layer.id === selectedId) ?? null;
 	const draggingLayer = drag ? layers.find((layer) => layer.id === drag.id) : null;
 	const backgroundSrc = asset(`background/${dimension.key}/${background}`);
-	const guideThreshold = 10;
+	const guideThreshold = 2;
 	const guides =
 		drag?.mode === "move" && draggingLayer
 			? {
@@ -198,9 +202,15 @@ function App() {
 
 	const updateLayer = useCallback((id: string, patch: Partial<Layer>) => {
 		setLayers((current) =>
-			current.map((layer) => (layer.id === id ? ({ ...layer, ...patch } as Layer) : layer)),
+			current.map((layer) => {
+				if (layer.id !== id) {
+					return layer;
+				}
+				const next = { ...layer, ...patch } as Layer;
+				return next.kind === "text" ? fitTextLayer(next, dimension.size) : next;
+			}),
 		);
-	}, []);
+	}, [dimension.size]);
 
 	const addCharacter = (name: string) => {
 		const width = Math.round(dimension.size.width * 0.32);
@@ -219,7 +229,7 @@ function App() {
 	const addText = () => {
 		const width = Math.round(dimension.size.width * 0.5);
 		const height = Math.round(dimension.size.height * 0.16);
-		const layer: TextLayer = {
+		const layer = fitTextLayer({
 			id: crypto.randomUUID(),
 			kind: "text",
 			text: "Tulis headline di sini",
@@ -229,7 +239,7 @@ function App() {
 			color: "#212121",
 			align: "center",
 			...centerLayer(dimension.size, width, height),
-		};
+		}, dimension.size);
 		setLayers((current) => [...current, layer]);
 		setSelectedId(layer.id);
 	};
@@ -443,7 +453,7 @@ function App() {
 											autoFocus
 											className="h-full w-full resize-none overflow-hidden bg-white/80 p-1 outline-none"
 											style={{
-												fontFamily: layer.fontFamily,
+												fontFamily: fontStack(layer.fontFamily),
 												fontSize: layer.fontSize * scale,
 												fontWeight: layer.fontWeight,
 												color: layer.color,
@@ -460,7 +470,7 @@ function App() {
 										<div
 											className="h-full w-full overflow-hidden whitespace-pre-wrap break-words"
 											style={{
-												fontFamily: layer.fontFamily,
+												fontFamily: fontStack(layer.fontFamily),
 												fontSize: layer.fontSize * scale,
 												fontWeight: layer.fontWeight,
 												color: layer.color,
@@ -658,29 +668,61 @@ function loadImage(src: string) {
 
 function drawWrappedText(context: CanvasRenderingContext2D, layer: TextLayer) {
 	context.fillStyle = layer.color;
-	context.font = `${layer.fontWeight} ${layer.fontSize}px "${layer.fontFamily}"`;
+	context.font = `${layer.fontWeight} ${layer.fontSize}px ${fontStack(layer.fontFamily)}`;
 	context.textBaseline = "top";
 	context.textAlign = layer.align;
 	const lineHeight = layer.fontSize * 1.12;
 	const textX = layer.align === "left" ? layer.x : layer.align === "right" ? layer.x + layer.width : layer.x + layer.width / 2;
-	const words = layer.text.split(/\s+/);
-	const lines: string[] = [];
-	let line = "";
-	for (const word of words) {
-		const test = line ? `${line} ${word}` : word;
-		if (context.measureText(test).width <= layer.width || !line) {
-			line = test;
-		} else {
-			lines.push(line);
-			line = word;
-		}
-	}
-	if (line) {
-		lines.push(line);
-	}
+	const lines = wrapText(context, layer.text, layer.width);
 	lines.slice(0, Math.floor(layer.height / lineHeight)).forEach((text, index) => {
 		context.fillText(text, textX, layer.y + index * lineHeight);
 	});
+}
+
+function fitTextLayer(layer: TextLayer, size: Dimension["size"]) {
+	const canvas = document.createElement("canvas");
+	const context = canvas.getContext("2d");
+	if (!context) {
+		return layer;
+	}
+	context.font = `${layer.fontWeight} ${layer.fontSize}px ${fontStack(layer.fontFamily)}`;
+	const lineHeight = layer.fontSize * 1.12;
+	const lines = wrapText(context, layer.text, layer.width);
+	const textWidth = Math.max(...lines.map((line) => context.measureText(line).width), 0);
+	const width = Math.min(size.width * 1.6, Math.max(60, Math.ceil(textWidth + layer.fontSize * 0.2)));
+	const height = Math.min(size.height * 1.6, Math.max(40, Math.ceil(lines.length * lineHeight)));
+	return resizeFromCenter(layer, Math.round(width), Math.round(height));
+}
+
+function resizeFromCenter<T extends Layer>(layer: T, width: number, height: number): T {
+	const centerX = layer.x + layer.width / 2;
+	const centerY = layer.y + layer.height / 2;
+	return {
+		...layer,
+		x: Math.round(centerX - width / 2),
+		y: Math.round(centerY - height / 2),
+		width,
+		height,
+	};
+}
+
+function wrapText(context: CanvasRenderingContext2D, text: string, width: number) {
+	const lines: string[] = [];
+	for (const paragraph of text.split("\n")) {
+		const words = paragraph.split(/\s+/).filter(Boolean);
+		let line = "";
+		for (const word of words) {
+			const test = line ? `${line} ${word}` : word;
+			if (context.measureText(test).width <= width || !line) {
+				line = test;
+			} else {
+				lines.push(line);
+				line = word;
+			}
+		}
+		lines.push(line);
+	}
+	return lines;
 }
 
 function drawContainedImage(context: CanvasRenderingContext2D, image: HTMLImageElement, layer: CharacterLayer) {
