@@ -137,6 +137,8 @@ function centerLayer(size: Dimension["size"], width: number, height: number) {
 
 function App() {
 	const viewport = useViewportSize();
+	const workspaceFitRef = useRef<HTMLDivElement>(null);
+	const workspaceFitSize = useElementSize(workspaceFitRef);
 	const [dimensionKey, setDimensionKey] = useState<DimensionKey>("widescreen");
 	const dimension = dimensions.find((item) => item.key === dimensionKey) ?? dimensions[0];
 	const [background, setBackground] = useState(dimension.backgrounds[0]);
@@ -165,10 +167,11 @@ function App() {
 			: { x: false, y: false };
 
 	const scale = useMemo(() => {
-		const maxWidth = Math.max(320, viewport.width - 740);
-		const maxHeight = Math.max(320, viewport.height - 230);
+		const isMobile = viewport.width < 1024;
+		const maxWidth = Math.max(260, (workspaceFitSize.width || viewport.width) - (isMobile ? 32 : 64));
+		const maxHeight = Math.max(260, isMobile ? viewport.height * 0.68 : viewport.height - 230);
 		return Math.min(maxWidth / dimension.size.width, maxHeight / dimension.size.height, 1);
-	}, [dimension.size.height, dimension.size.width, viewport.height, viewport.width]);
+	}, [dimension.size.height, dimension.size.width, viewport.height, viewport.width, workspaceFitSize.width]);
 
 	useEffect(() => {
 		setBackground(dimension.backgrounds[0]);
@@ -335,51 +338,54 @@ function App() {
 				</div>
 			</header>
 
-			<main className="grid h-[calc(100vh-73px)] gap-4 px-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
-				<aside className="panel overflow-hidden">
-					<Section title="Dimension">
-						<div className="grid grid-cols-2 gap-2">
-							{dimensions.map((item) => (
-								<button
-									key={item.key}
-									className={item.key === dimension.key ? "choice choice-active" : "choice"}
-									type="button"
-									onClick={() => setDimensionKey(item.key)}
-								>
-									<span>{item.label}</span>
-									<small>{item.size.width} x {item.size.height}</small>
-								</button>
-							))}
-						</div>
-					</Section>
+			<main className="flex h-[calc(100svh-73px)] flex-col gap-4 overflow-hidden px-3 py-3 sm:px-4 sm:py-4 lg:grid lg:h-[calc(100vh-73px)] lg:grid-cols-[280px_minmax(0,1fr)_320px]">
+				<details className="mobile-disclosure panel order-2 overflow-hidden lg:order-none" open>
+					<summary>Assets</summary>
+					<div className="mobile-disclosure-body">
+						<Section title="Dimension">
+							<div className="grid grid-cols-2 gap-2">
+								{dimensions.map((item) => (
+									<button
+										key={item.key}
+										className={item.key === dimension.key ? "choice choice-active" : "choice"}
+										type="button"
+										onClick={() => setDimensionKey(item.key)}
+									>
+										<span>{item.label}</span>
+										<small>{item.size.width} x {item.size.height}</small>
+									</button>
+								))}
+							</div>
+						</Section>
 
-					<Section title="Background">
-						<div className="thumb-grid">
-							{dimension.backgrounds.map((item) => (
-								<button
-									key={item}
-									className={item === background ? "thumb thumb-active" : "thumb"}
-									type="button"
-									onClick={() => setBackground(item)}
-								>
-									<img src={asset(`background/${dimension.key}/${item}`)} alt="" />
-								</button>
-							))}
-						</div>
-					</Section>
+						<Section title="Background">
+							<div className="thumb-grid">
+								{dimension.backgrounds.map((item) => (
+									<button
+										key={item}
+										className={item === background ? "thumb thumb-active" : "thumb"}
+										type="button"
+										onClick={() => setBackground(item)}
+									>
+										<img src={asset(`background/${dimension.key}/${item}`)} alt="" />
+									</button>
+								))}
+							</div>
+						</Section>
 
-					<Section title="Characters">
-						<div className="thumb-grid">
-							{characters.map((item) => (
-								<button key={item} className="thumb character-thumb" type="button" onClick={() => addCharacter(item)}>
-									<img src={asset(`character/${item}`)} alt="" />
-								</button>
-							))}
-						</div>
-					</Section>
-				</aside>
+						<Section title="Characters">
+							<div className="thumb-grid">
+								{characters.map((item) => (
+									<button key={item} className="thumb character-thumb" type="button" onClick={() => addCharacter(item)}>
+										<img src={asset(`character/${item}`)} alt="" />
+									</button>
+								))}
+							</div>
+						</Section>
+					</div>
+				</details>
 
-				<section className="workspace-panel min-w-0">
+				<section className="workspace-panel order-1 min-w-0 lg:order-none">
 					<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 						<div>
 							<p className="kicker">Workspace</p>
@@ -392,7 +398,7 @@ function App() {
 						</div>
 					</div>
 
-					<div className="workspace-fit">
+					<div className="workspace-fit" ref={workspaceFitRef}>
 						<div
 							ref={stageRef}
 							className="relative mx-auto overflow-visible shadow-[0_18px_45px_rgba(15,23,42,0.18)]"
@@ -481,113 +487,116 @@ function App() {
 					</div>
 				</section>
 
-				<aside className="panel overflow-auto">
-					<div className="mb-4">
-						<p className="kicker">Controls</p>
-						<h2 className="text-lg font-bold">Layer & Text</h2>
-					</div>
-					<Section title="Layer">
-						<div className="grid grid-cols-2 gap-2">
-							<button className="btn-outline-sm" disabled={!selectedLayer} type="button" onClick={() => moveLayer("up")}>Up</button>
-							<button className="btn-outline-sm" disabled={!selectedLayer} type="button" onClick={() => moveLayer("down")}>Down</button>
-							<button className="btn-outline-sm" disabled={!selectedLayer} type="button" onClick={() => moveLayer("front")}>Front</button>
-							<button className="btn-outline-sm" disabled={!selectedLayer} type="button" onClick={() => moveLayer("back")}>Back</button>
-							<button
-								className="btn-outline-sm col-span-2"
-								disabled={!selectedLayer}
-								type="button"
-								onClick={() => {
-									setLayers((current) => current.filter((layer) => layer.id !== selectedId));
-									setSelectedId(null);
-								}}
-							>
-								Delete
-							</button>
+				<details className="mobile-disclosure panel order-3 overflow-hidden lg:order-none" open>
+					<summary>Controls</summary>
+					<div className="mobile-disclosure-body">
+						<div className="mb-4">
+							<p className="kicker">Controls</p>
+							<h2 className="text-lg font-bold">Layer & Text</h2>
 						</div>
-					</Section>
-
-					{selectedLayer?.kind === "text" ? (
-						<Section title="Text">
-							<label className="label-xs">Content</label>
-							<textarea
-								className="input-sm mt-1 min-h-28"
-								value={selectedLayer.text}
-								onChange={(event) => updateLayer(selectedLayer.id, { text: event.target.value })}
-							/>
-							<label className="label-xs mt-3">Font</label>
-							<select
-								className="input-sm mt-1"
-								value={selectedLayer.fontFamily}
-								onChange={(event) => updateLayer(selectedLayer.id, { fontFamily: event.target.value as FontFamily })}
-							>
-								{fonts.map((font) => (
-									<option key={font} value={font}>{font}</option>
-								))}
-							</select>
-							<div className="mt-3 grid grid-cols-2 gap-2">
-								<label className="label-xs">
-									Size
-									<input
-										className="input-sm mt-1"
-										min={16}
-										max={180}
-										type="number"
-										value={selectedLayer.fontSize}
-										onChange={(event) => updateLayer(selectedLayer.id, { fontSize: Number(event.target.value) })}
-									/>
-								</label>
-								<label className="label-xs">
-									Weight
-									<input
-										className="input-sm mt-1"
-										max={700}
-										min={400}
-										step={100}
-										type="number"
-										value={selectedLayer.fontWeight}
-										onChange={(event) => updateLayer(selectedLayer.id, { fontWeight: Number(event.target.value) })}
-									/>
-								</label>
-							</div>
-							<label className="label-xs mt-3">Color</label>
-							<div className="mt-1 grid grid-cols-6 gap-2">
-								{textColors.map((color) => (
-									<button
-										key={color}
-										aria-label={`Set text color ${color}`}
-										className={selectedLayer.color === color ? "color-swatch color-swatch-active" : "color-swatch"}
-										style={{ backgroundColor: color }}
-										type="button"
-										onClick={() => updateLayer(selectedLayer.id, { color })}
-									/>
-								))}
-							</div>
-							<input
-								className="mt-1 h-11 w-full rounded-2xl border border-(--app-border) bg-white p-1"
-								type="color"
-								value={selectedLayer.color}
-								onChange={(event) => updateLayer(selectedLayer.id, { color: event.target.value })}
-							/>
-							<label className="label-xs mt-3">Text Mode</label>
-							<div className="mt-1 grid grid-cols-3 gap-2">
-								{(["left", "center", "right"] as const).map((align) => (
-									<button
-										key={align}
-										className={selectedLayer.align === align ? "choice choice-active justify-center text-center capitalize" : "choice justify-center text-center capitalize"}
-										type="button"
-										onClick={() => updateLayer(selectedLayer.id, { align })}
-									>
-										{align}
-									</button>
-								))}
+						<Section title="Layer">
+							<div className="grid grid-cols-2 gap-2">
+								<button className="btn-outline-sm" disabled={!selectedLayer} type="button" onClick={() => moveLayer("up")}>Up</button>
+								<button className="btn-outline-sm" disabled={!selectedLayer} type="button" onClick={() => moveLayer("down")}>Down</button>
+								<button className="btn-outline-sm" disabled={!selectedLayer} type="button" onClick={() => moveLayer("front")}>Front</button>
+								<button className="btn-outline-sm" disabled={!selectedLayer} type="button" onClick={() => moveLayer("back")}>Back</button>
+								<button
+									className="btn-outline-sm col-span-2"
+									disabled={!selectedLayer}
+									type="button"
+									onClick={() => {
+										setLayers((current) => current.filter((layer) => layer.id !== selectedId));
+										setSelectedId(null);
+									}}
+								>
+									Delete
+								</button>
 							</div>
 						</Section>
-					) : (
-						<p className="rounded-2xl bg-(--user-surface-soft) p-4 text-sm leading-6 text-(--user-muted)">
-							Select layer to reorder. Select text layer to edit font and content.
-						</p>
-					)}
-				</aside>
+
+						{selectedLayer?.kind === "text" ? (
+							<Section title="Text">
+								<label className="label-xs">Content</label>
+								<textarea
+									className="input-sm mt-1 min-h-28"
+									value={selectedLayer.text}
+									onChange={(event) => updateLayer(selectedLayer.id, { text: event.target.value })}
+								/>
+								<label className="label-xs mt-3">Font</label>
+								<select
+									className="input-sm mt-1"
+									value={selectedLayer.fontFamily}
+									onChange={(event) => updateLayer(selectedLayer.id, { fontFamily: event.target.value as FontFamily })}
+								>
+									{fonts.map((font) => (
+										<option key={font} value={font}>{font}</option>
+									))}
+								</select>
+								<div className="mt-3 grid grid-cols-2 gap-2">
+									<label className="label-xs">
+										Size
+										<input
+											className="input-sm mt-1"
+											min={16}
+											max={180}
+											type="number"
+											value={selectedLayer.fontSize}
+											onChange={(event) => updateLayer(selectedLayer.id, { fontSize: Number(event.target.value) })}
+										/>
+									</label>
+									<label className="label-xs">
+										Weight
+										<input
+											className="input-sm mt-1"
+											max={700}
+											min={400}
+											step={100}
+											type="number"
+											value={selectedLayer.fontWeight}
+											onChange={(event) => updateLayer(selectedLayer.id, { fontWeight: Number(event.target.value) })}
+										/>
+									</label>
+								</div>
+								<label className="label-xs mt-3">Color</label>
+								<div className="mt-1 grid grid-cols-6 gap-2">
+									{textColors.map((color) => (
+										<button
+											key={color}
+											aria-label={`Set text color ${color}`}
+											className={selectedLayer.color === color ? "color-swatch color-swatch-active" : "color-swatch"}
+											style={{ backgroundColor: color }}
+											type="button"
+											onClick={() => updateLayer(selectedLayer.id, { color })}
+										/>
+									))}
+								</div>
+								<input
+									className="mt-1 h-11 w-full rounded-2xl border border-(--app-border) bg-white p-1"
+									type="color"
+									value={selectedLayer.color}
+									onChange={(event) => updateLayer(selectedLayer.id, { color: event.target.value })}
+								/>
+								<label className="label-xs mt-3">Text Mode</label>
+								<div className="mt-1 grid grid-cols-3 gap-2">
+									{(["left", "center", "right"] as const).map((align) => (
+										<button
+											key={align}
+											className={selectedLayer.align === align ? "choice choice-active justify-center text-center capitalize" : "choice justify-center text-center capitalize"}
+											type="button"
+											onClick={() => updateLayer(selectedLayer.id, { align })}
+										>
+											{align}
+										</button>
+									))}
+								</div>
+							</Section>
+						) : (
+							<p className="rounded-2xl bg-(--user-surface-soft) p-4 text-sm leading-6 text-(--user-muted)">
+								Select layer to reorder. Select text layer to edit font and content.
+							</p>
+						)}
+					</div>
+				</details>
 			</main>
 		</div>
 	);
@@ -613,6 +622,26 @@ function useViewportSize() {
 		window.addEventListener("resize", onResize);
 		return () => window.removeEventListener("resize", onResize);
 	}, []);
+
+	return size;
+}
+
+function useElementSize(ref: React.RefObject<HTMLElement | null>) {
+	const [size, setSize] = useState({ width: 0, height: 0 });
+
+	useEffect(() => {
+		if (!ref.current) {
+			return;
+		}
+		const observer = new ResizeObserver(([entry]) => {
+			setSize({
+				width: entry.contentRect.width,
+				height: entry.contentRect.height,
+			});
+		});
+		observer.observe(ref.current);
+		return () => observer.disconnect();
+	}, [ref]);
 
 	return size;
 }
