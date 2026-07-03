@@ -166,7 +166,7 @@
 	}
 
 	.layer {
-		@apply absolute cursor-move touch-none select-none;
+		@apply absolute m-0 cursor-move touch-none select-none border-0 p-0;
 	}
 
 	.layer-selected {
