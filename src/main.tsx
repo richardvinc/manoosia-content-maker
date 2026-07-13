@@ -281,14 +281,14 @@ function App() {
 	}, [selectedId]);
 
 	const updateLayer = useCallback(
-		(id: string, patch: Partial<Layer>) => {
+		(id: string, patch: Partial<Layer>, fitText = true) => {
 			setLayers((current) =>
 				current.map((layer) => {
 					if (layer.id !== id) {
 						return layer;
 					}
 					const next = { ...layer, ...patch } as Layer;
-					return next.kind === "text"
+					return next.kind === "text" && fitText
 						? fitTextLayer(next, dimension.size)
 						: next;
 				}),
@@ -373,20 +373,24 @@ function App() {
 			});
 			return;
 		}
-		updateLayer(drag.id, {
-			width: Math.round(
-				Math.max(
-					60,
-					Math.min(dimension.size.width * 1.6, drag.layer.width + dx),
+		updateLayer(
+			drag.id,
+			{
+				width: Math.round(
+					Math.max(
+						60,
+						Math.min(dimension.size.width * 1.6, drag.layer.width + dx),
+					),
 				),
-			),
-			height: Math.round(
-				Math.max(
-					40,
-					Math.min(dimension.size.height * 1.6, drag.layer.height + dy),
+				height: Math.round(
+					Math.max(
+						40,
+						Math.min(dimension.size.height * 1.6, drag.layer.height + dy),
+					),
 				),
-			),
-		});
+			},
+			false,
+		);
 	};
 
 	const moveLayer = (action: "up" | "down" | "front" | "back") => {
